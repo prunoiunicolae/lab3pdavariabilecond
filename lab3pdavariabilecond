@@ -1,0 +1,77 @@
+# lab3pdavariabilecond
+
+
+
+#include <iostream>
+#include <string>
+#include <chrono>
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <ctime>
+#include <cstdlib>
+#include <condition_variable>
+
+#define n_max 10
+
+std::mutex mtx_mutex;
+std::queue <int> q;
+int nr_rand, item;
+std::condition_variable prodCond, consCond;
+
+void produce(int item){
+     std::cout <<"introducem in coada numarul "<<item<<" \n";
+     std::this_thread::sleep_for(std::chrono::seconds(5));
+}
+
+void consume(){
+     std::cout <<"extragem din coada \n";
+     std::this_thread::sleep_for(std::chrono::seconds(5));
+}
+
+
+
+void producer(){
+    while(true){
+        srand( time(0));
+        item = rand()%100;
+        produce(item);
+        std::unique_lock<std::mutex> lk(mtx_mutex);
+        while(q.size() == n_max){
+            prodCond.wait(lk, []{return true;});
+        }
+        q.push(item);
+        lk.unlock();
+        consCond.notify_all();
+    }
+}
+void consumer(){
+    while(true){
+        std::unique_lock<std::mutex> lk(mtx_mutex);
+       if(q.size() == 0)
+            consCond.wait(lk, []{return true;});
+       q.pop();
+       lk.unlock();
+       prodCond.notify_all();
+       consume();
+    }
+}
+
+int main(){
+    int i;
+    
+    for(i = 0;i<2;i++) {
+        srand( time(0));
+        item = rand()%100;
+        std::cout <<"introducem in coada numarul "<<item<<"\n";
+        q.push(item);
+    }
+
+    for(i = 0; i < 5; i++) {
+        std::thread t1(producer);
+        std::thread t2(consumer);
+        
+        t1.join();
+        t2.join();
+    }
+}
